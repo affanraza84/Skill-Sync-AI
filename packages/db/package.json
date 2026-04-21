@@ -1,0 +1,23 @@
+{
+  "name": "@skillsync/db",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@prisma/client": "^5.10.2"
+  },
+  "devDependencies": {
+    "prisma": "^5.10.2",
+    "@skillsync/config": "workspace:*",
+    "typescript": "^5.6.2",
+    "tsx": "^4.7.1"
+  },
+  "scripts": {
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed"
+  },
+  "prisma": {
+    "seed": "tsx seed.ts"
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "14.1.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "zustand": "^4.5.1",
+    "react-hook-form": "^7.50.1",
+    "@hookform/resolvers": "^3.3.4",
+    "zod": "^3.22.4",
+    "lucide-react": "^0.368.0",
+    "@skillsync/ui": "workspace:*",
+    "@skillsync/auth": "workspace:*",
+    "@skillsync/db": "workspace:*",
+    "@skillsync/utils": "workspace:*",
+    "@skillsync/services": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.19",
+    "@types/react": "^18.2.55",
+    "@types/react-dom": "^18.2.19",
+    "tailwindcss": "^3.4.1",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "typescript": "^5.6.2",
+    "@skillsync/config": "workspace:*"
+  }
+}

@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  name      String?
+  image     String?
+  createdAt DateTime @default(now())
+
+  profile         Profile?
+  recommendations CareerRecommendation[]
+  refreshTokens   RefreshToken[]
+}
+
+model Profile {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  education String?
+  goals     String?
+
+  skills    Skill[]
+  interests Interest[]
+}
+
+model Skill {
+  id       String    @id @default(uuid()) @db.Uuid
+  name     String    @unique
+  profiles Profile[]
+}
+
+model Interest {
+  id       String    @id @default(uuid()) @db.Uuid
+  name     String    @unique
+  profiles Profile[]
+}
+
+model CareerRecommendation {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  domain     String?
+  subdomains String[]
+  role       String
+  score      Float
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  skillGaps SkillGap[]
+  roadmap   RoadmapStep[]
+}
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model SkillGap {
+  id       String               @id @default(uuid()) @db.Uuid
+  careerId String               @db.Uuid
+  career   CareerRecommendation @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  skill    String
+  priority Priority
+  reason   String?
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  token     String   @unique
+  userId    String   @db.Uuid
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RoadmapStep {
+  id       String               @id @default(uuid()) @db.Uuid
+  careerId String               @db.Uuid
+  career   CareerRecommendation @relation(fields: [careerId], references: [id], onDelete: Cascade)
+  step     Int
+  task     String
+  timeline String?
+}
