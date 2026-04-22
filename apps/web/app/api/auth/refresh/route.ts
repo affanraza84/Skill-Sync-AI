@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: isProduction,
       sameSite: "lax",
-      maxAge: 15 * 60, // 15 minutes
+      maxAge: 10 * 365 * 24 * 60 * 60, // 10 years
       path: "/",
     });
 
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       httpOnly: true,
       secure: isProduction,
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 10 * 365 * 24 * 60 * 60, // 10 years
       path: "/",
     });
 

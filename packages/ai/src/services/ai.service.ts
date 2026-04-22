@@ -8,10 +8,61 @@ export interface CareerProfile {
 }
 
 export class AIService {
+  private static ROLE_LIBRARY: Record<string, string[]> = {
+    tech: [
+      "Machine Learning Engineer", "Cloud Solutions Architect", "Frontend Performance Engineer", 
+      "DevSecOps Engineer", "Data Pipeline Architect", "Embedded Systems Engineer", 
+      "Site Reliability Engineer", "Blockchain Developer", "AI Product Manager"
+    ],
+    social: [
+      "Public Policy Analyst", "Behavioral Researcher", "Community Development Manager", 
+      "Urban Sustainability Planner", "Social Impact Strategist", "Human Rights Advocate",
+      "Demographic Analyst", "Nonprofit Program Director"
+    ],
+    commerce: [
+      "Quantitative Analyst", "Growth Marketing Strategist", "Supply Chain Optimization Manager", 
+      "FinTech Product Manager", "Corporate Strategist", "Market Intelligence Director",
+      "E-commerce Operations Manager", "Risk Management Consultant"
+    ],
+    science: [
+      "Bioinformatics Specialist", "Clinical Data Manager", "Materials Research Scientist", 
+      "Environmental Consultant", "Epidemiological Data Analyst", "Pharmacovigilance Scientist",
+      "Renewable Energy Analyst", "Genomic Researcher"
+    ]
+  };
+
+  private static detectDomain(profile: CareerProfile): string {
+    const profileString = JSON.stringify(profile).toLowerCase();
+    
+    const domainKeywords = {
+      tech: ["software", "code", "programming", "cloud", "developer", "engineering", "ai", "machine learning", "data pipeline", "frontend", "backend", "web"],
+      science: ["biology", "chemistry", "physics", "research", "clinical", "laboratory", "genetics", "environment", "materials", "medical", "science"],
+      commerce: ["business", "finance", "marketing", "supply chain", "economics", "sales", "accounting", "management", "strategy", "investment", "commerce"],
+      social: ["policy", "sociology", "psychology", "community", "public", "human", "education", "behavioral", "nonprofit", "urban", "social"]
+    };
+
+    let maxMatches = -1;
+    let selectedDomain = "tech"; // default fallback
+
+    for (const [domain, keywords] of Object.entries(domainKeywords)) {
+      const matches = keywords.filter(kw => profileString.includes(kw)).length;
+      if (matches > maxMatches) {
+        maxMatches = matches;
+        selectedDomain = domain;
+      }
+    }
+
+    // Default to tech if no strong match, or keep whatever we found
+    return maxMatches === 0 ? "tech" : selectedDomain;
+  }
+
   static async analyzeCareer(profile: CareerProfile) {
+    const domain = this.detectDomain(profile);
+    const candidateRoles = this.ROLE_LIBRARY[domain];
+
     if (!process.env.GEMINI_API_KEY) {
       console.error("GEMINI_API_KEY is missing. Using fallback mock data.");
-      return this.getFallbackData(profile);
+      return this.getFallbackData(profile, domain, candidateRoles);
     }
 
     try {
@@ -19,9 +70,9 @@ export class AIService {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
       const prompt = `
-        TASK: Generate highly specific, domain-accurate career recommendations.
+        TASK: Rank candidate roles based on the user profile and provide domain-specific insights.
 
-        INPUT:
+        INPUT PROFILE:
         {
           "education": "${profile.education}",
           "skills": ${JSON.stringify(profile.skills)},
@@ -29,73 +80,36 @@ export class AIService {
           "goals": "${profile.goals}"
         }
 
-        --------------------------------------------------
-        STEP 1: DOMAIN & SUBDOMAIN CLASSIFICATION (MANDATORY)
-        --------------------------------------------------
-        - Infer PRIMARY DOMAIN (e.g., Tech, Social Science, Commerce, Life Sciences).
-        - Infer 1–2 SUBDOMAINS from skills/interests (e.g., NLP, Cybersecurity, Behavioral Economics, Public Policy, Supply Chain Analytics, Biostatistics).
-
-        Return internally (do not output):
-        - domain
-        - subdomains[]
+        CANDIDATE ROLES (DO NOT CREATE NEW ROLES):
+        ${JSON.stringify(candidateRoles)}
 
         --------------------------------------------------
-        STEP 2: ROLE GENERATION (STRICT)
+        STEP 1: SELECT AND RANK ROLES
         --------------------------------------------------
-        Generate EXACTLY 4–6 roles with HIGH specificity.
-
-        HARD RULES:
-        - DO NOT use generic titles:
-          ["Software Engineer", "Data Analyst", "Engineer", "Analyst", "Developer"]
-        - Each role MUST include a qualifier:
-          - Tech examples:
-            "NLP Engineer", "Computer Vision Engineer",
-            "Cloud Security Engineer", "Frontend Performance Engineer",
-            "MLOps Engineer", "Embedded Systems Engineer"
-          - Analytics examples:
-            "Product Analytics Specialist", "Growth Data Scientist",
-            "Supply Chain Analyst", "Risk Modeling Analyst",
-            "Marketing Attribution Analyst"
-          - Social Science examples:
-            "Policy Research Associate", "Development Economist",
-            "Urban Planning Analyst", "Public Affairs Consultant"
-          - Commerce examples:
-            "Investment Banking Analyst", "Forensic Accountant",
-            "FP&A Analyst", "Credit Risk Analyst"
-
-        - Each role MUST map to at least TWO of:
-          {skills, interests, goals}
-
-        --------------------------------------------------
-        STEP 3: EVIDENCE-BASED SCORING
-        --------------------------------------------------
+        Select the top 3–5 roles from the candidate list that best match the user profile.
         For each role:
-        - score (0–100) based on:
-          skill_match (0–40) + interest_match (0–30) + goal_alignment (0–30)
+        - Assign a score (0-100) based on alignment with skills, interests, and goals.
+        - Give a concise reason referencing exact inputs.
 
-        - Include a SHORT reason referencing EXACT inputs:
-          e.g., "Python + NLP interest -> strong fit for NLP Engineer"
-
-        --------------------------------------------------
-        STEP 4: SKILL GAPS (NON-GENERIC)
-        --------------------------------------------------
-        - Provide 4–6 skills gaps SPECIFIC to the TOP 2 roles.
-        - Avoid generic skills unless justified.
-        - Include reason:
-          e.g., "Transformers -> required for NLP Engineer"
+        DO NOT CREATE NEW ROLES. ONLY CHOOSE FROM THE PROVIDED LIST.
 
         --------------------------------------------------
-        STEP 5: ROADMAP (ROLE-SPECIFIC)
+        STEP 2: SKILL GAPS
         --------------------------------------------------
-        - 4–6 steps tailored to TOP role
-        - Include tools/technologies
-          e.g., "Build a sentiment analysis model using BERT"
+        Generate 4–6 skill gaps specific to the TOP selected role. Must be domain-specific.
+        Include a priority (HIGH, MEDIUM, LOW) and a reason.
+
+        --------------------------------------------------
+        STEP 3: ROADMAP
+        --------------------------------------------------
+        Generate a 4–6 step roadmap tailored to the TOP selected role.
+        Include actionable tasks and timelines (e.g., "Week 1", "Month 1").
 
         --------------------------------------------------
         OUTPUT (STRICT JSON ONLY)
         --------------------------------------------------
         {
-          "domain": "string",
+          "domain": "${domain}",
           "subdomains": ["string"],
           "careers": [
             {
@@ -114,99 +128,67 @@ export class AIService {
           "roadmap": [
             {
               "step": number,
-              "task": "string"
+              "task": "string",
+              "timeline": "string"
             }
           ]
         }
-
-        --------------------------------------------------
-        FINAL CONSTRAINTS
-        --------------------------------------------------
-        - No generic roles
-        - No repetition
-        - Roles must differ meaningfully
-        - Must feel personalized to THIS input
-        - Return ONLY JSON
       `;
 
       const result = await model.generateContent(prompt);
       const text = result.response.text();
-      
-      // Clean up markdown code blocks if the AI includes them
-      const cleanedText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-
+      const cleanedText = text.replace(/\`\`\`json/gi, "").replace(/\`\`\`/g, "").trim();
       const parsedData = JSON.parse(cleanedText);
 
-      // POST-PROCESSING: Validation Layer
-      const profileString = JSON.stringify(profile);
-      const techKeywords = ["computer", "software", "tech", "data", "engineering", "it", "web", "programming", "code", "ai", "machine learning", "developer"];
-      const hasTechKeywords = techKeywords.some(kw => new RegExp(`\\b${kw}\\b`, 'i').test(profileString));
-      const isNonTech = !hasTechKeywords;
-      
-      if (isNonTech && parsedData.careers) {
-        // Filter out strict tech roles as a fallback safeguard
-        const techKeywords = ["software", "developer", "engineer", "data analyst", "full stack", "frontend", "backend"];
+      // POST-PROCESSING: Filter out any generic roles just in case
+      const genericKeywords = ["software engineer", "data analyst", "developer", "engineer", "analyst"];
+      if (parsedData.careers) {
         parsedData.careers = parsedData.careers.filter((c: any) => {
           const roleLower = c.role.toLowerCase();
-          return !techKeywords.some(tk => roleLower.includes(tk));
+          // Keep only if it exactly matches one of our candidates, or if it doesn't match a generic keyword
+          const isCandidate = candidateRoles.some(cr => cr.toLowerCase() === roleLower);
+          if (isCandidate) return true;
+          
+          const isGeneric = genericKeywords.some(gk => roleLower === gk);
+          return !isGeneric;
         });
 
-        // If filtering removed everything, inject a safe default based on education
+        // Ensure we always have at least one fallback role if all were filtered
         if (parsedData.careers.length === 0) {
-          parsedData.careers = [
-            { role: "Policy Research Associate", score: 90, reason: "Strong alignment with social science/arts background." },
-            { role: "Qualitative Researcher", score: 85, reason: "Leverages your academic and analytical skills." }
-          ];
+           parsedData.careers = candidateRoles.slice(0, 2).map((role, idx) => ({
+            role,
+            score: 90 - (idx * 10),
+            reason: "Selected as fallback optimal fit."
+          }));
         }
       }
 
       return parsedData;
     } catch (error) {
       console.error("Gemini AI analysis failed:", error);
-      return this.getFallbackData(profile);
+      return this.getFallbackData(profile, domain, candidateRoles);
     }
   }
 
-  private static getFallbackData(profile?: CareerProfile) {
-    const profileString = profile ? JSON.stringify(profile) : "";
-    const techKeywords = ["computer", "software", "tech", "data", "engineering", "it", "web", "programming", "code", "ai", "machine learning", "developer"];
-    const hasTechKeywords = techKeywords.some(kw => new RegExp(`\\b${kw}\\b`, 'i').test(profileString));
-    const isNonTech = profile && !hasTechKeywords;
-
-    if (isNonTech) {
-      return {
-        domain: "Social Sciences & Humanities",
-        subdomains: ["Public Policy", "Behavioral Analysis"],
-        careers: [
-          { role: "Policy Research Associate", score: 90, reason: "Strong alignment with social science/arts background." },
-          { role: "Qualitative Researcher", score: 85, reason: "Leverages your academic and analytical skills." },
-          { role: "Public Affairs Consultant", score: 80, reason: "Good fit for organizational and management skills." }
-        ],
-        skillGaps: [
-          { skill: "Data Analysis (SPSS/R)", priority: "HIGH", reason: "Crucial for modern quantitative research." },
-          { skill: "Grant Writing", priority: "MEDIUM", reason: "Important for securing funding in non-profits or academia." }
-        ],
-        roadmap: [
-          { step: 1, task: "Review quantitative research methods." },
-          { step: 2, task: "Practice policy brief formatting." }
-        ]
-      };
-    }
+  private static getFallbackData(profile: CareerProfile, domain: string, candidateRoles: string[]) {
+    // Select top 2 roles from candidateRoles
+    const fallbackCareers = candidateRoles.slice(0, 2).map((role, idx) => ({
+      role,
+      score: 95 - (idx * 10),
+      reason: "Matches your profile well based on your background."
+    }));
 
     return {
-      domain: "Technology",
-      subdomains: ["Software Engineering", "Data Analytics"],
-      careers: [
-        { role: "Frontend Performance Engineer", score: 95, reason: "Matches your technical background perfectly." },
-        { role: "Product Analytics Specialist", score: 85, reason: "Strong analytical overlap with your skills." }
-      ],
+      domain,
+      subdomains: ["General Analytics", "Applied Strategy"],
+      careers: fallbackCareers,
       skillGaps: [
-        { skill: "System Design", priority: "HIGH", reason: "Essential for technical interviews." },
-        { skill: "Advanced SQL", priority: "MEDIUM", reason: "Required for data manipulation tasks." }
+        { skill: "Domain Specific Knowledge", priority: "HIGH", reason: "Essential for starting out." },
+        { skill: "Advanced Problem Solving", priority: "MEDIUM", reason: "Required for senior responsibilities." }
       ],
       roadmap: [
-        { step: 1, task: "Master foundational algorithms." },
-        { step: 2, task: "Build a full-stack side project." }
+        { step: 1, task: "Master foundational concepts.", timeline: "Week 1-2" },
+        { step: 2, task: "Build a practical project.", timeline: "Week 3-4" }
       ]
     };
   }
